@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rekap Pemilu RT/RW</title>
+<style>
+:root{color-scheme:light;--bg:#faf7f2;--card:#fff;--tx:#2a2420;--mut:#5c534c;--ac:#7a1f2b;--gold:#c9a14a;--ok:#2f6b3a;--bd:#ddd3c7;--red:#a3261c}
+*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Arial,sans-serif;font-size:19px;line-height:1.5;background:var(--bg);color:var(--tx)}
+header{background:var(--ac);color:#fff;padding:14px 16px;border-bottom:5px solid var(--gold);text-align:center}
+header .sub{font-size:14px;letter-spacing:2px;text-transform:uppercase;opacity:.85}
+header h1{font-family:Georgia,"Times New Roman",serif;font-size:24px;margin:2px 0 0}
+nav{display:flex;gap:6px;max-width:900px;margin:12px auto 0;padding:0 16px;flex-wrap:wrap}
+nav button{flex:1;min-width:130px;font-size:18px;padding:14px;font-weight:600}
+nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+main{max-width:900px;margin:auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--bd);border-top:4px solid var(--ac);border-radius:6px;padding:20px;margin-bottom:16px}
+h2{font-family:Georgia,"Times New Roman",serif;margin:0 0 12px;font-size:23px;color:var(--ac)}
+button{font:inherit;font-size:18px;min-height:52px;padding:10px 18px;border-radius:6px;border:2px solid var(--bd);background:var(--card);color:var(--tx);cursor:pointer}
+button.p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}button.d{color:var(--red);border-color:var(--red)}
+button:disabled{opacity:.4}
+input,select{font:inherit;font-size:19px;padding:12px;border-radius:6px;border:2px solid var(--bd);background:var(--card);color:var(--tx);width:100%;min-height:52px}
+label.l{display:block;font-weight:600;margin:12px 0 4px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}.row>input{flex:1;min-width:140px}
+.mut{color:var(--mut);font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.vote{padding:14px;font-size:20px;text-align:center;border-radius:8px;border:3px solid var(--ac);background:var(--card);font-weight:600}
+.vote b{display:block;font-size:44px;color:var(--ac);font-family:Georgia,serif}
+.vote:active{background:var(--gold)}.vote.inv{border:3px dashed var(--mut)}.vote.inv b{color:var(--mut)}
+.ph{width:120px;height:150px;object-fit:cover;border-radius:6px;border:1px solid var(--bd);background:#e5e7eb;display:block;margin:0 auto 8px}
+.ph.sm{width:72px;height:90px;margin:0}
+.cand{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--bd);border-radius:6px;padding:10px;margin:10px 0}
+.cand .f{flex:1;min-width:180px}
+table{width:100%;border-collapse:collapse;font-size:18px}td,th{padding:10px;border:1px solid var(--bd);text-align:left}th{background:var(--ac);color:#fff}td.n,th.n{text-align:right}
+.bar{height:14px;background:var(--gold);border-radius:3px}.win{color:var(--ok);font-weight:700}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ok);color:#fff;padding:14px 24px;border-radius:8px;font-size:20px;font-weight:600;display:none}
+.ttd{display:none}
+@media print{header,nav,button,.noprint,.toast{display:none!important}.card{border:0}body{background:#fff;color:#000}th{background:#ddd;color:#000}.ttd{display:flex;justify-content:space-around;margin-top:50px;text-align:center}}
+</style>
+</head>
+<body>
+<header><div class="sub">Kelurahan Demangan</div><h1>Rekapitulasi Suara Pemilihan RT/RW</h1><div id="ttl" style="font-size:17px;margin-top:4px"></div></header>
+<nav id="nav"></nav>
+<main id="app"></main><div class="toast" id="toast"></div>
+<script>
+const KEY='pemiluRTRW.v1';
+let S;try{S=JSON.parse(localStorage.getItem(KEY))||{el:[]}}catch(e){S={el:[]}}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+let view='list',cur=null,tpsI=0;
+const E=()=>S.el.find(e=>e.id===cur);
+function go(v,id,t){view=v;if(id!==undefined)cur=id;if(t!==undefined)tpsI=t;render()}
+function tot(e,t){const r={};e.cands.forEach(c=>r[c.id]=0);let inv=0;(t?[t]:e.tps).forEach(x=>{e.cands.forEach(c=>r[c.id]+=x.v[c.id]||0);inv+=x.inv||0});return{r,inv}}
+
+function render(){$('#ttl').textContent=view==='list'?'':E()?.name||'';
+const tabs=[['list','🏠 Beranda'],['setup','1. Atur Calon'],['count','2. Hitung Suara'],['rekap','3. Hasil']];
+$('#nav').innerHTML=view==='list'?'':tabs.map(([v,l])=>`<button class="${v===view?'on':''}" onclick="go('${v}',undefined,${v==='count'?'tpsI':'undefined'})">${l}</button>`).join('');
+window.scrollTo(0,0);const a=$('#app');a.innerHTML=({list,setup,count,rekap})[view]();}
+
+function list(){return `<div class="card"><h2>Daftar Pemilihan</h2><p class="mut">Pilih pemilihan di bawah ini, lalu tekan <b>Hitung Suara</b>.</p>
+${S.el.length?S.el.map(e=>{const t=tot(e),sum=Object.values(t.r).reduce((a,b)=>a+b,0);return `<div class="row" style="border-bottom:1px solid var(--bd);padding:6px 0">
+<div style="flex:1"><b>${esc(e.name)}</b><div class="mut">${e.cands.length} calon · ${e.tps.length} TPS · ${sum+t.inv} suara masuk</div></div>
+<button class="p" onclick="go('count','${e.id}',0)">Hitung Suara</button><button onclick="go('rekap','${e.id}')">Hasil</button><button onclick="go('setup','${e.id}')">Atur</button></div>`}).join(''):'<p class="mut">Belum ada pemilihan. Buat satu untuk tiap RT atau RW.</p>'}
+<div class="row"><button class="p" onclick="newEl()">+ Pemilihan baru</button></div></div>
+<div class="card noprint"><h2>Cadangan data</h2><p class="mut">Data tersimpan di browser perangkat ini saja. Unduh cadangan sebelum ganti perangkat atau hapus riwayat browser.</p>
+<div class="row"><button onclick="backup()">Unduh cadangan (.json)</button><label><button onclick="this.nextElementSibling.click()">Pulihkan cadangan</button><input type="file" accept=".json" hidden onchange="restore(this)"></label></div></div>`}
+
+function newEl(){const e={id:uid(),name:'Pemilihan Ketua RT 01',cands:[{id:uid(),no:1,name:''},{id:uid(),no:2,name:''}],tps:[{id:uid(),name:'TPS 1',v:{},inv:0,log:[]}]};S.el.push(e);save();go('setup',e.id)}
+
+function setup(){const e=E();return `<div class="card"><h2>Pengaturan</h2>
+<label class="l">Nama pemilihan</label><input value="${esc(e.name)}" onchange="E().name=this.value;save()" placeholder="mis. Pemilihan Ketua RW 06">
+<h2 style="margin-top:20px">Daftar Calon</h2>${e.cands.map((c,i)=>`<div class="cand">${c.img?`<img class="ph sm" src="${c.img}" alt="">`:'<div class="ph sm"></div>'}
+<div class="f"><label class="l" style="margin-top:0">Nomor urut & nama calon</label><div class="row" style="margin:0"><input style="max-width:80px;flex:0" type="number" value="${c.no}" onchange="E().cands[${i}].no=+this.value;save()"><input value="${esc(c.name)}" placeholder="Nama lengkap calon" onchange="E().cands[${i}].name=this.value;save()"></div>
+<div class="row"><button onclick="this.nextElementSibling.click()">📷 ${c.img?'Ganti':'Unggah'} foto</button><input type="file" accept="image/*" hidden onchange="photo(${i},this)">${c.img?`<button onclick="E().cands[${i}].img=null;save();render()">Hapus foto</button>`:''}<button class="d" onclick="delC(${i})">Hapus calon</button></div></div></div>`).join('')}
+<button onclick="E().cands.push({id:uid(),no:E().cands.length+1,name:''});save();render()">+ Calon</button>
+<h2 style="margin-top:16px">TPS</h2>${e.tps.map((t,i)=>`<div class="row"><input value="${esc(t.name)}" onchange="E().tps[${i}].name=this.value;save()"><input style="max-width:130px" type="number" min="0" placeholder="DPT (opsional)" value="${t.dpt??''}" onchange="E().tps[${i}].dpt=this.value===''?null:+this.value;save()"><button class="d" onclick="delT(${i})">Hapus</button></div>`).join('')}
+<button onclick="E().tps.push({id:uid(),name:'TPS '+(E().tps.length+1),v:{},inv:0,log:[]});save();render()">+ TPS</button>
+<div class="row" style="margin-top:18px"><button class="p" onclick="go('count',undefined,0)">Lanjut: Hitung Suara →</button><button class="d" onclick="delE()">Hapus pemilihan</button></div></div>`}
+function photo(i,inp){const f=inp.files[0];if(!f)return;const im=new Image();im.onload=()=>{const W=300,H=375,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d'),r=Math.max(W/im.width,H/im.height),w=im.width*r,h=im.height*r;x.drawImage(im,(W-w)/2,(H-h)/2,w,h);E().cands[i].img=c.toDataURL('image/jpeg',.8);URL.revokeObjectURL(im.src);save();render()};im.src=URL.createObjectURL(f)}
+function delC(i){const e=E();if(e.tps.some(t=>t.v[e.cands[i].id])&&!confirm('Calon ini sudah punya suara. Tetap hapus?'))return;e.cands.splice(i,1);save();render()}
+function delT(i){if(E().tps.length<2)return alert('Minimal satu TPS.');if(!confirm('Hapus TPS beserta suaranya?'))return;E().tps.splice(i,1);save();render()}
+function delE(){if(!confirm('Hapus seluruh pemilihan ini?'))return;S.el=S.el.filter(e=>e.id!==cur);save();go('list')}
+
+function count(){const e=E(),t=e.tps[tpsI]||e.tps[0],r=tot(e,t),sum=Object.values(r.r).reduce((a,b)=>a+b,0);
+return `<div class="card noprint"><h2>Hitung Suara</h2><label class="l">Pilih TPS</label><div class="row"><select onchange="go('count',undefined,+this.value)">${e.tps.map((x,i)=>`<option value="${i}" ${i==tpsI?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+<p class="mut">Tekan kartu calon <b>satu kali</b> untuk setiap surat suara yang dibacakan. Jika salah tekan, gunakan tombol <b>Batalkan</b>.<br> Sah: <b>${sum}</b> · Tidak sah: <b>${r.inv}</b> · Total: <b>${sum+r.inv}</b>${t.dpt?` dari DPT ${t.dpt}`:''}</p>
+<div class="grid">${[...e.cands].sort((a,b)=>a.no-b.no).map(c=>`<button class="vote" onclick="tap('${c.id}')">${c.img?`<img class="ph" src="${c.img}" alt="">`:''}${c.no}. ${esc(c.name||'Calon '+c.no)}<b>${r.r[c.id]}</b></button>`).join('')}
+<button class="vote inv" onclick="tap('inv')">Tidak sah<b>${r.inv}</b></button></div>
+<div class="row" style="margin-top:12px"><button class="d" onclick="undo()" ${t.log.length?'':'disabled'}>↶ Batalkan tekanan terakhir</button><button class="p" onclick="go('rekap')">Lanjut: Lihat Hasil →</button></div></div>`}
+function tap(k){const t=E().tps[tpsI];if(k==='inv')t.inv++;else t.v[k]=(t.v[k]||0)+1;t.log.push(k);save();navigator.vibrate?.(30);const sc=scrollY;render();scrollTo(0,sc);const c=E().cands.find(x=>x.id===k);toast('✔ 1 suara: '+(c?c.no+'. '+(c.name||'Calon '+c.no):'Tidak sah'))}
+let tt;function toast(m){const x=$('#toast');x.textContent=m;x.style.display='block';clearTimeout(tt);tt=setTimeout(()=>x.style.display='none',1200)}
+function undo(){const t=E().tps[tpsI],k=t.log.pop();if(k==null)return;if(k==='inv')t.inv--;else t.v[k]--;save();const sc=scrollY;render();scrollTo(0,sc);toast('↶ Dibatalkan')}
+
+function rekap(){const e=E(),T=tot(e),cs=[...e.cands].sort((a,b)=>a.no-b.no),sum=Object.values(T.r).reduce((a,b)=>a+b,0),mx=Math.max(0,...Object.values(T.r));
+const winners=cs.filter(c=>mx>0&&T.r[c.id]===mx);
+return `<div class="card"><h2>Hasil Rekapitulasi Suara</h2><p style="margin-top:-6px"><b>${esc(e.name)}</b></p>
+<p>${winners.length===1&&winners[0].img?`<img class="ph" style="margin:0 0 8px" src="${winners[0].img}" alt="">`:''}${winners.length===1?`Perolehan suara terbanyak: <span class="win">${winners[0].no}. ${esc(winners[0].name)}</span>`:winners.length>1?'<span class="win">Suara terbanyak seri</span>':'<span class="mut">Belum ada suara</span>'}</p>
+<table><tr><th>Calon</th><th class="n">Suara</th><th class="n">%</th><th style="width:30%"></th></tr>
+${cs.map(c=>{const p=sum?T.r[c.id]/sum*100:0;return `<tr><td>${c.img?`<img src="${c.img}" style="width:36px;height:45px;object-fit:cover;vertical-align:middle;margin-right:8px;border-radius:3px">`:''}${c.no}. ${esc(c.name)}</td><td class="n">${T.r[c.id]}</td><td class="n">${p.toFixed(1)}</td><td><div class="bar" style="width:${p}%"></div></td></tr>`}).join('')}
+<tr><td><b>Suara sah</b></td><td class="n"><b>${sum}</b></td><td></td><td></td></tr><tr><td>Tidak sah</td><td class="n">${T.inv}</td><td></td><td></td></tr><tr><td><b>Total surat suara</b></td><td class="n"><b>${sum+T.inv}</b></td><td></td><td></td></tr></table></div>
+${e.tps.length>1?`<div class="card" style="overflow-x:auto"><h2>Per TPS</h2><table><tr><th>TPS</th>${cs.map(c=>`<th class="n">${c.no}</th>`).join('')}<th class="n">Tdk sah</th><th class="n">Total</th></tr>
+${e.tps.map(t=>{const r=tot(e,t),s=Object.values(r.r).reduce((a,b)=>a+b,0);return `<tr><td>${esc(t.name)}</td>${cs.map(c=>`<td class="n">${r.r[c.id]}</td>`).join('')}<td class="n">${r.inv}</td><td class="n">${s+r.inv}</td></tr>`}).join('')}</table></div>`:''}
+<p class="mut">Dicetak ${new Date().toLocaleString('id-ID')}</p><div class="ttd"><div>Ketua Panitia<br><br><br><br>(..............................)</div><div>Saksi<br><br><br><br>(..............................)</div></div>
+<div class="row noprint"><button class="p" onclick="print()">Cetak / PDF</button><button onclick="csv()">Unduh Excel (CSV)</button></div>`}
+
+function dl(name,txt,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click()}
+function csv(){const e=E(),cs=[...e.cands].sort((a,b)=>a.no-b.no),q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+const rows=[['TPS',...cs.map(c=>c.no+'. '+c.name),'Tidak sah','Total']];
+e.tps.forEach(t=>{const r=tot(e,t);rows.push([t.name,...cs.map(c=>r.r[c.id]),r.inv,cs.reduce((a,c)=>a+r.r[c.id],0)+r.inv])});
+const T=tot(e);rows.push(['JUMLAH',...cs.map(c=>T.r[c.id]),T.inv,cs.reduce((a,c)=>a+T.r[c.id],0)+T.inv]);
+dl(e.name+'.csv','﻿'+rows.map(r=>r.map(q).join(';')).join('\n'),'text/csv')}
+function backup(){dl('cadangan-pemilu-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(S),'application/json')}
+function restore(inp){const f=inp.files[0];if(!f)return;f.text().then(t=>{const d=JSON.parse(t);if(!d.el)throw 0;if(confirm('Ganti semua data dengan cadangan ini?')){S=d;save();render()}}).catch(()=>alert('File cadangan tidak valid.'))}
+render();
+</script>
+</body>
+</html>
